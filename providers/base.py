@@ -8,7 +8,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+
+# 流式文本回调：每收到一段增量就 await 一次。provider 只负责"把字交出来"，
+# 怎么显示（CLI、总线、SDK）由上层决定。
+DeltaCallback = Callable[[str], Awaitable[None]]
 
 
 @dataclass
@@ -34,15 +39,23 @@ class Message:
         "user"      用户输入
         "assistant" 模型回复；如果它想调用工具，会同时带上 tool_calls
         "tool"      工具执行结果，必须带 tool_call_id，指明是哪次调用的结果
+
+    ``metadata`` 只用于本机会话展示（引用、工具执行记录、token 用量），
+    默认不参与模型请求，避免把内部字段发给 OpenAI 兼容端点。
     """
 
     role: str
     content: str | None = None
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
+    metadata: dict | None = None
 
-    def to_dict(self) -> dict:
-        """转成 OpenAI /chat/completions 接口要求的 JSON 结构。"""
+    def to_dict(self, *, include_metadata: bool = False) -> dict:
+        """转成 OpenAI /chat/completions 接口要求的 JSON 结构。
+
+        会话落盘时传 ``include_metadata=True``，请求模型时保持默认值，
+        确保兼容端点只收到标准字段。
+        """
         d: dict = {"role": self.role, "content": self.content}
         if self.tool_calls:
             d["tool_calls"] = [
@@ -55,6 +68,8 @@ class Message:
             ]
         if self.tool_call_id is not None:
             d["tool_call_id"] = self.tool_call_id
+        if include_metadata and self.metadata:
+            d["metadata"] = self.metadata
         return d
 
 
@@ -69,6 +84,27 @@ class Usage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+
+    def add(self, other: "Usage | None") -> None:
+        """把另一次调用的用量累加进来；兼容端点可能不返回 usage。"""
+        if other is None:
+            return
+        self.prompt_tokens += int(other.prompt_tokens or 0)
+        self.completion_tokens += int(other.completion_tokens or 0)
+        self.total_tokens += int(
+            other.total_tokens
+            or (other.prompt_tokens or 0) + (other.completion_tokens or 0)
+        )
+
+    def as_dict(self) -> dict[str, int]:
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "total_tokens": self.total_tokens,
+        }
+
+    def __bool__(self) -> bool:
+        return bool(self.prompt_tokens or self.completion_tokens or self.total_tokens)
 
 
 @dataclass
@@ -111,6 +147,10 @@ class LLMProvider(ABC):
     """所有模型提供者的统一接口。换模型 = 换一个实现，引擎代码一行都不用改。
 
     注意 chat 是 async 的：调用方用 `await provider.chat(...)`。
+
+    ``on_delta`` 不为 None 时请求流式输出：provider 在响应过程中逐段调用它，
+    最终仍然返回完整的 LLMResponse（便于上层统一落盘与统计）。
+    不支持的端点可以忽略该参数，退化为一次性返回，上层无需特判。
     """
 
     @abstractmethod
@@ -118,5 +158,10 @@ class LLMProvider(ABC):
         self,
         messages: list[Message],
         tools: list[dict] | None = None,
+        on_delta: DeltaCallback | None = None,
     ) -> LLMResponse:
         ...
+
+    async def aclose(self) -> None:
+        """释放底层客户端资源；默认实现无需清理。"""
+        return None

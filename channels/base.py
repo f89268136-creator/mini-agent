@@ -33,3 +33,18 @@ class Channel(ABC):
     @abstractmethod
     async def stop(self) -> None:
         """停止渠道并释放资源（关闭连接、取消任务等）。"""
+
+    async def request_approval(
+        self,
+        *,
+        session_key: str,
+        sender: str,
+        tool_name: str,
+        arguments: dict,
+    ) -> bool:
+        """询问用户是否允许执行有副作用的工具。
+
+        默认拒绝：没有确认能力的渠道（如 Echo）不能让模型静默修改文件。
+        Web/CLI 等交互渠道应覆盖本方法。
+        """
+        return False

@@ -1,0 +1,7 @@
+openai>=1.60,<4
+# 密钥默认存操作系统钥匙串；缺少时首启设置页只能退回显式凭据文件。
+keyring>=24,<27
+
+# 可选依赖（按需安装，未安装时对应功能默认关闭）：
+#   Langfuse 追踪: pip install "langfuse>=5,<6"
+#   Mem0 记忆后端: pip install "mem0ai>=2.2,<3"

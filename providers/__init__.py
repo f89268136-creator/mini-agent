@@ -11,7 +11,13 @@
 """
 
 from .base import LLMProvider, LLMResponse, Message, ToolCall, Usage
-from .embeddings import Embedder, OpenAICompatEmbedder, embedder_from_env
+from .embeddings import (
+    Embedder,
+    HashingEmbedder,
+    OpenAICompatEmbedder,
+    build_embedder,
+    embedder_from_env,
+)
 from .openai_compat import (
     OpenAICompatProvider,
     RetryingProvider,
@@ -26,7 +32,9 @@ __all__ = [
     "ToolCall",
     "Usage",
     "Embedder",
+    "HashingEmbedder",
     "OpenAICompatEmbedder",
+    "build_embedder",
     "embedder_from_env",
     "OpenAICompatProvider",
     "RetryingProvider",

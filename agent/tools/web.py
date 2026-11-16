@@ -1,52 +1,105 @@
-"""部件：网络工具（对应 nanobot 里的 web search / fetch）。
+"""网络工具：必应搜索与网页正文抓取。
 
-- web_search：用必应搜索（www.bing.com 国内通常可访问），解析结果标题/链接/摘要；
-- fetch_webpage：抓取某个网址，粗提取正文（去掉脚本、样式和 HTML 标签）。
-
-两者都只用标准库（urllib + 正则），零第三方依赖。
-刻意保持同步：工具由 runner 用 asyncio.to_thread 丢到工作线程执行，
-线程里阻塞式网络调用无所谓，不必为了 async 而 async。
-注意：搜索引擎返回的 HTML 结构可能变化，正则解析属于"轻量可用"方案；
-生产中建议改用官方搜索 API。
+默认拒绝访问内网/回环/保留地址（SSRF 防护），并在跟随重定向前后都做校验。
+如需访问内网服务，显式设置 ``allow_private_urls=true``。
 """
 
 from __future__ import annotations
 
 import html
+import ipaddress
 import re
+import socket
+import urllib.parse
 import urllib.request
-from urllib.parse import quote
+from typing import Any
 
+from .policy import private_urls_enabled
 from .registry import register_tool
 
-# 搜索引擎会拦截没有浏览器标识的请求，需要带 User-Agent
 _USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
 )
-_MAX_FETCH_CHARS = 4000
+_MAX_DOWNLOAD_BYTES = 2_000_000
+_MAX_FETCH_CHARS = 4_000
 
 
 def _strip_tags(markup: str) -> str:
-    """去掉 HTML 标签并还原 &amp; 等实体，压缩多余空白。"""
     text = re.sub(r"<[^>]+>", " ", markup)
     text = html.unescape(text)
     return re.sub(r"\s+", " ", text).strip()
 
 
+def validate_url(url: str) -> None:
+    """校验协议与目标地址；默认只允许访问公网 HTTP(S)。"""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"只支持 http/https URL，收到: {parsed.scheme or '(空)'}")
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"URL 缺少主机名: {url}")
+    if private_urls_enabled():
+        return
+
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except socket.gaierror as exc:
+        raise ValueError(f"无法解析主机名: {host}") from exc
+    for info in infos:
+        raw_ip = info[4][0].split("%", 1)[0]
+        try:
+            address = ipaddress.ip_address(raw_ip)
+        except ValueError:
+            continue
+        if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+            address = address.ipv4_mapped
+        if not address.is_global:
+            raise PermissionError(
+                f"拒绝访问内网/保留地址 {address}（host={host}）；"
+                "如确需访问，请设置 allow_private_urls=true"
+            )
+
+
+class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        validate_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def _http_get(url: str, timeout: float = 20.0) -> str:
-    request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return response.read().decode("utf-8", errors="ignore")
+    validate_url(url)
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": _USER_AGENT, "Accept-Encoding": "identity"},
+    )
+    opener = urllib.request.build_opener(_SafeRedirectHandler())
+    with opener.open(request, timeout=timeout) as response:
+        raw = response.read(_MAX_DOWNLOAD_BYTES + 1)
+        truncated = len(raw) > _MAX_DOWNLOAD_BYTES
+        raw = raw[:_MAX_DOWNLOAD_BYTES]
+        charset = response.headers.get_content_charset() or "utf-8"
+    text = raw.decode(charset, errors="ignore")
+    if truncated:
+        text += "\n…（响应体过大，已截断）"
+    return text
 
 
 @register_tool
 def web_search(query: str) -> str:
     """用必应搜索网络，返回若干条结果的标题、链接和摘要。"""
-    url = f"https://www.bing.com/search?q={quote(query)}&setlang=zh-CN"
+    url = f"https://www.bing.com/search?q={urllib.parse.quote(query)}&setlang=zh-CN"
     page = _http_get(url)
 
-    # 每个自然结果在 <li class="b_algo"> ... </li> 中
     blocks = re.findall(r'<li class="b_algo".*?</li>', page, flags=re.DOTALL)
     results: list[str] = []
     for block in blocks[:5]:
@@ -68,9 +121,8 @@ def web_search(query: str) -> str:
 
 @register_tool
 def fetch_webpage(url: str) -> str:
-    """抓取网页并提取正文（自动去掉脚本、样式和标签），用于阅读某个链接的内容。"""
+    """抓取公网网页并提取正文（自动去掉脚本、样式和 HTML 标签）。"""
     page = _http_get(url)
-    # 先去掉 script / style 整块，避免把代码当正文
     page = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", page)
     text = _strip_tags(page)
     if len(text) > _MAX_FETCH_CHARS:

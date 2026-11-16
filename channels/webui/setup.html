@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<title>mini_agent · 首次配置</title>
+<style>
+  :root {
+    --bg: #080d13;
+    --surface: #111a24;
+    --surface-2: #16212d;
+    --border: rgba(148, 163, 184, .14);
+    --border-strong: rgba(148, 163, 184, .28);
+    --text: #e7eef6;
+    --muted: #8fa0b3;
+    --faint: #64748b;
+    --accent: #2dd4bf;
+    --accent-2: #38bdf8;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --ok: #34d399;
+    --radius: 16px;
+    --shadow: 0 24px 60px rgba(0, 0, 0, .42);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background:
+      radial-gradient(1100px 560px at 10% -10%, rgba(45, 212, 191, .10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(56, 189, 248, .08), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font: 14px/1.65 "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    padding: 40px 20px 56px;
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  ::selection { background: rgba(45, 212, 191, .28); }
+  .wrap { width: min(760px, 100%); margin: 0 auto; }
+
+  .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+  .logo {
+    width: 40px; height: 40px; border-radius: 13px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: #04121a; font-weight: 800; font-size: 19px;
+    box-shadow: 0 8px 24px rgba(45, 212, 191, .26);
+  }
+  .brand-title { font-size: 18px; font-weight: 650; letter-spacing: .2px; }
+  .brand-sub { color: var(--faint); font-size: 12px; margin-top: -2px; }
+
+  .card {
+    background: linear-gradient(180deg, rgba(17, 26, 36, .96), rgba(11, 17, 24, .96));
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card + .card { margin-top: 16px; }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 18px 22px 0;
+  }
+  .card-title { font-size: 15px; font-weight: 620; }
+  .card-body { padding: 16px 22px 22px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--border-strong); color: var(--muted);
+    white-space: nowrap;
+  }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pill.ok { color: var(--ok); border-color: rgba(52, 211, 153, .35); background: rgba(52, 211, 153, .08); }
+  .pill.warn { color: var(--warn); border-color: rgba(251, 191, 36, .35); background: rgba(251, 191, 36, .08); }
+  .pill.bad { color: var(--danger); border-color: rgba(248, 113, 113, .35); background: rgba(248, 113, 113, .08); }
+
+  .reason { color: var(--muted); margin: 10px 0 0; }
+  .reason strong { color: var(--text); font-weight: 600; }
+  .hint { color: var(--faint); font-size: 12px; margin: 8px 0 0; }
+  code, .mono {
+    font-family: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+    font-size: 12px;
+    background: rgba(148, 163, 184, .10);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1px 6px;
+    overflow-wrap: anywhere;
+  }
+  pre.repair {
+    margin: 10px 0 0; padding: 12px 14px; overflow-x: auto;
+    background: rgba(8, 13, 19, .8); border: 1px solid var(--border);
+    border-radius: 10px; color: #cbd5e1; font-size: 12px; line-height: 1.55;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+
+  .notice {
+    margin: 12px 0 0; padding: 11px 14px; border-radius: 10px;
+    border: 1px solid rgba(251, 191, 36, .28); background: rgba(251, 191, 36, .07);
+    color: #fde68a; font-size: 13px;
+  }
+  .notice.error {
+    border-color: rgba(248, 113, 113, .32); background: rgba(248, 113, 113, .08);
+    color: #fecaca;
+  }
+  .notice.info {
+    border-color: rgba(56, 189, 248, .28); background: rgba(56, 189, 248, .07);
+    color: #bae6fd;
+  }
+  .notice.ok {
+    border-color: rgba(52, 211, 153, .3); background: rgba(52, 211, 153, .07);
+    color: #a7f3d0;
+  }
+  .notice[hidden] { display: none; }
+
+  .providers { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .provider {
+    text-align: left; padding: 13px 14px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--surface-2);
+    transition: border-color .15s, transform .15s, background .15s;
+  }
+  .provider:hover { border-color: rgba(45, 212, 191, .45); transform: translateY(-1px); }
+  .provider.active { border-color: rgba(45, 212, 191, .65); background: rgba(45, 212, 191, .08); }
+  .provider-name { font-weight: 620; }
+  .provider-base { color: var(--faint); font-size: 11px; margin-top: 4px; overflow-wrap: anywhere; }
+
+  .form { display: grid; gap: 14px; margin-top: 18px; }
+  .field { display: grid; gap: 6px; }
+  .field label { color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+  .field input {
+    width: 100%; padding: 10px 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: rgba(8, 13, 19, .72);
+    outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .field input:focus { border-color: rgba(45, 212, 191, .6); box-shadow: 0 0 0 3px rgba(45, 212, 191, .12); }
+  .field input:disabled { opacity: .55; cursor: not-allowed; }
+  .field .sub { color: var(--faint); font-size: 11.5px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 10px 16px; border-radius: 10px; font-weight: 600;
+    border: 1px solid var(--border-strong); background: transparent; color: var(--text);
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .btn:hover:not(:disabled) { background: rgba(148, 163, 184, .08); border-color: var(--border-strong); }
+  .btn:active:not(:disabled) { transform: translateY(1px); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary {
+    border-color: rgba(45, 212, 191, .5);
+    background: linear-gradient(135deg, rgba(45, 212, 191, .2), rgba(56, 189, 248, .14));
+    color: #c7fbf3;
+  }
+  .btn.primary:hover:not(:disabled) { border-color: rgba(45, 212, 191, .8); }
+  .btn.ghost { border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--text); }
+
+  .result { margin-top: 14px; }
+  .result[hidden] { display: none; }
+  .checks { margin: 12px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .checks li { display: flex; align-items: baseline; gap: 8px; color: var(--muted); font-size: 12.5px; }
+  .checks li .name { color: var(--faint); min-width: 92px; flex: none; font-family: "Cascadia Mono", Consolas, monospace; }
+  .checks li.bad .name { color: var(--danger); }
+  .checks li.warn .name { color: var(--warn); }
+
+  .footer { color: var(--faint); font-size: 11.5px; margin-top: 18px; line-height: 1.7; }
+  .footer code { font-size: 11px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+  @media (max-width: 560px) {
+    body { padding: 24px 14px 40px; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .card-head, .card-body { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="brand">
+    <div class="logo" aria-hidden="true">m</div>
+    <div>
+      <div class="brand-title">mini_agent 首次配置</div>
+      <div class="brand-sub">一次配置，之后启动无需再输入</div>
+    </div>
+  </header>
+
+  <section class="card" aria-labelledby="status-title">
+    <div class="card-head">
+      <h2 class="card-title" id="status-title">运行状态</h2>
+      <span class="pill" id="status-pill">检查中…</span>
+    </div>
+    <div class="card-body">
+      <p class="reason" id="status-reason">正在读取启动预检结果…</p>
+      <div class="notice error" id="token-note" hidden>
+        当前页面缺少设置令牌。请使用终端里打印的完整设置链接（形如
+        <code>http://127.0.0.1:8767/setup#token=…</code>）打开本页；
+        或改用 <code>mini-agent login</code> 在终端完成配置。
+      </div>
+      <div class="notice" id="keyring-note" hidden>
+        系统钥匙串当前不可用。使用需要密钥的服务商前，请先在终端执行
+        <code>pip install keyring</code> 并确认系统凭据服务可用；或设置
+        <code>MINI_CREDENTIALS_FILE</code> 指向仅当前用户可读的文件。
+        本地模型可以不填密钥。
+      </div>
+      <div class="notice error" id="blocked-note" hidden>
+        <strong>环境未就绪，无法在页面内修复。</strong>
+        <div id="blocked-action" style="margin-top:6px"></div>
+      </div>
+      <div class="notice" id="repair-note" hidden>
+        <strong>配置文件损坏。</strong>保存设置时会自动备份原文件，再写入一份干净配置。
+        <pre class="repair" id="repair-detail"></pre>
+      </div>
+      <ul class="checks" id="checks"></ul>
+    </div>
+  </section>
+
+  <section class="card" id="setup-card" aria-labelledby="setup-title">
+    <div class="card-head">
+      <h2 class="card-title" id="setup-title">模型与凭据</h2>
+      <span class="pill" id="cred-pill" hidden></span>
+    </div>
+    <div class="card-body">
+      <div class="providers" id="providers" role="group" aria-label="服务商模板"></div>
+
+      <form class="form" id="setup-form" autocomplete="off" novalidate>
+        <div class="grid-2">
+          <div class="field">
+            <label for="model">模型</label>
+            <input id="model" name="model" type="text" spellcheck="false" maxlength="200" placeholder="例如 qwen-plus" required>
+            <div class="sub">填服务商控制台里的模型名。</div>
+          </div>
+          <div class="field">
+            <label for="apiBase">端点（OpenAI 兼容）</label>
+            <input id="apiBase" name="apiBase" type="url" spellcheck="false" maxlength="2048" placeholder="https://…/v1" required>
+            <div class="sub">本地模型可填 <code>http://127.0.0.1:11434/v1</code>。</div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="apiKey">API 密钥</label>
+          <input id="apiKey" name="apiKey" type="password" spellcheck="false" maxlength="8192" placeholder="sk-…" autocomplete="new-password">
+          <div class="sub" id="key-hint">密钥会存入系统钥匙串，不写入配置文件，也不会出现在日志或页面里。</div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="submit" id="save-btn">保存并进入对话</button>
+          <button class="btn" type="button" id="test-btn">测试连接</button>
+          <button class="btn ghost" type="button" id="reload-btn">刷新状态</button>
+        </div>
+      </form>
+
+      <div class="result" id="result" role="status" aria-live="polite" hidden></div>
+    </div>
+  </section>
+
+  <p class="footer">
+    设置页只监听 <code>127.0.0.1</code>，保存接口使用一次性令牌并在成功后立即失效。
+    密钥只进入操作系统钥匙串；配置文件只保存与默认值不同的项。
+    已有配置时也可以继续用 <code>mini-agent login</code> 在终端修改。
+  </p>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const TOKEN_KEY = 'mini_setup_token';
+  const $ = (id) => document.getElementById(id);
+
+  // 令牌放在 URL fragment：不会随请求发到服务端，也不进访问日志。
+  (function captureToken() {
+    const hash = location.hash.replace(/^#/, '');
+    if (!hash) return;
+    const token = new URLSearchParams(hash).get('token');
+    if (token) {
+      sessionStorage.setItem(TOKEN_KEY, token);
+      history.replaceState(null, '', location.pathname);
+    }
+  })();
+
+  let state = null;
+  let token = sessionStorage.getItem(TOKEN_KEY) || '';
+  let selecting = '';
+
+  const setText = (el, text) => { if (el) el.textContent = text; };
+  const show = (el, visible) => { if (el) el.hidden = !visible; };
+
+  function formData() {
+    return {
+      model: $('model').value.trim(),
+      api_base: $('apiBase').value.trim(),
+      api_key: $('apiKey').value
+    };
+  }
+
+  function setBusy(busy, label) {
+    $('save-btn').disabled = busy || !state || state.status === 'blocked' || state.ready || !token;
+    $('test-btn').disabled = busy || !state || state.status === 'blocked' || !token;
+    if (busy && label) {
+      $('result').hidden = false;
+      $('result').className = 'result notice info';
+      setText($('result'), label);
+    }
+  }
+
+  function showResult(kind, message) {
+    const box = $('result');
+    box.hidden = false;
+    box.className = 'result notice ' + kind;
+    box.textContent = message;
+  }
+
+  function pillFor(status) {
+    if (status === 'ready') return ['ok', '已就绪'];
+    if (status === 'blocked') return ['bad', '无法启动'];
+    return ['warn', '待配置'];
+  }
+
+  function renderChecks(checks) {
+    const list = $('checks');
+    list.textContent = '';
+    (checks || []).forEach((check) => {
+      const li = document.createElement('li');
+      if (check.status === 'error') li.className = 'bad';
+      else if (check.status === 'warn') li.className = 'warn';
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = check.name;
+      const detail = document.createElement('span');
+      detail.textContent = check.detail;
+      li.append(name, detail);
+      list.append(li);
+    });
+  }
+
+  function renderProviders(providers) {
+    const wrap = $('providers');
+    wrap.textContent = '';
+    (providers || []).forEach((item) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'provider';
+      btn.dataset.id = item.id;
+      const name = document.createElement('div');
+      name.className = 'provider-name';
+      name.textContent = item.label;
+      const base = document.createElement('div');
+      base.className = 'provider-base';
+      base.textContent = item.api_base;
+      btn.append(name, base);
+      btn.addEventListener('click', () => chooseProvider(item));
+      wrap.append(btn);
+    });
+  }
+
+  function chooseProvider(item) {
+    if (!state || state.ready || state.status === 'blocked') return;
+    selecting = item.id;
+    $('apiBase').value = item.api_base;
+    if (item.models && item.models.length) $('model').value = item.models[0];
+    $('apiKey').placeholder = item.key_hint || 'sk-…';
+    document.querySelectorAll('.provider').forEach((el) => {
+      el.classList.toggle('active', el.dataset.id === item.id);
+    });
+  }
+
+  function renderState(data) {
+    state = data || {};
+    const [cls, label] = pillFor(state.status);
+    const pill = $('status-pill');
+    pill.className = 'pill ' + cls;
+    setText(pill, label);
+
+    const config = state.config || {};
+    const reason = state.reason || (state.ready
+      ? '配置已就绪，可以直接进入对话。'
+      : '尚未完成配置。填写下面的模型与密钥即可。');
+    const reasonEl = $('status-reason');
+    reasonEl.textContent = '';
+    const strong = document.createElement('strong');
+    strong.textContent = state.ready ? '可以直接使用。' : (state.repair ? '需要修复配置。' : '需要一次配置。');
+    reasonEl.append(strong, document.createTextNode(' ' + reason));
+
+    renderChecks(state.checks);
+    renderProviders(state.providers);
+
+    show($('blocked-note'), state.status === 'blocked');
+    if (state.status === 'blocked') {
+      setText($('blocked-action'), state.action ? '在终端执行：' + state.action : '请先在终端修复环境问题。');
+    }
+    show($('repair-note'), Boolean(state.repair));
+    if (state.repair) {
+      const lines = (state.issues || []).filter((i) => i.severity === 'error').map((i) => i.message);
+      setText($('repair-detail'), lines.join('\n') || state.reason || '配置文件无法解析');
+    }
+
+    const credPill = $('cred-pill');
+    if (config.credential_source) {
+      credPill.hidden = false;
+      const labelMap = { keyring: '钥匙串已保存', env: '环境变量生效', file: '凭据文件生效', config: '配置文件中的旧密钥' };
+      credPill.textContent = labelMap[config.credential_source] || '密钥已配置';
+      credPill.className = 'pill ok';
+      $('apiKey').placeholder = '已保存，留空表示沿用';
+    } else {
+      credPill.hidden = true;
+      $('apiKey').placeholder = 'sk-…';
+    }
+
+    if (!$('model').value && config.model) $('model').value = config.model;
+    if (!$('apiBase').value && config.api_base) $('apiBase').value = config.api_base;
+
+    const locked = state.ready || state.status === 'blocked';
+    ['model', 'apiBase', 'apiKey'].forEach((id) => { $(id).disabled = locked; });
+    setBusy(false);
+
+    if (state.ready) {
+      showResult('ok', '配置已完成。正在进入对话…');
+      setTimeout(() => { location.href = '/'; }, 700);
+    } else if (state.status === 'blocked') {
+      showResult('error', '环境问题需要在终端修复后再回到本页。');
+    }
+
+    show($('token-note'), !token);
+    show($('keyring-note'), state.keyring_available === false && !state.ready);
+
+    const keyHint = $('key-hint');
+    if (keyHint) {
+      keyHint.textContent = state.keyring_available === false
+        ? '系统钥匙串不可用；需要密钥时请先安装 keyring 或设置 MINI_CREDENTIALS_FILE。'
+        : '密钥会存入系统钥匙串，不写入配置文件，也不会出现在日志或页面里。';
+    }
+  }
+
+  async function refresh() {
+    try {
+      const res = await fetch('/api/setup', { cache: 'no-store', headers: { 'Accept': 'application/json' } });
+      const data = await res.json();
+      renderState(data);
+    } catch (err) {
+      const pill = $('status-pill');
+      pill.className = 'pill bad';
+      setText(pill, '无法连接');
+      setText($('status-reason'), '无法连接后端，请确认服务仍在运行。');
+    }
+  }
+
+  async function postJSON(url, body) {
+    const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+    if (token) headers['X-Setup-Token'] = token;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      cache: 'no-store'
+    });
+    let data = {};
+    try { data = await res.json(); } catch (_) { data = { error: '响应格式不正确' }; }
+    return { res, data };
+  }
+
+  async function runTest() {
+    const data = formData();
+    if (!data.model || !data.api_base) {
+      showResult('error', '请先填写模型和端点。');
+      return;
+    }
+    if (!token) {
+      showResult('error', '缺少设置令牌，请使用终端打印的完整链接打开本页。');
+      return;
+    }
+    setBusy(true, '正在连接端点…');
+    try {
+      const { res, data: out } = await postJSON('/api/setup/test', data);
+      if (res.status === 403) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        token = '';
+        show($('token-note'), true);
+        showResult('error', out.error || '设置令牌已失效。');
+        setBusy(false);
+        return;
+      }
+      if (out.ok) showResult('ok', '连接成功：' + (out.model || data.model));
+      else showResult('error', out.error || '连接失败，请检查配置。');
+    } catch (err) {
+      showResult('error', '请求失败：' + (err && err.message ? err.message : '未知错误'));
+    }
+    setBusy(false);
+  }
+
+  async function runSave(event) {
+    event.preventDefault();
+    const data = formData();
+    if (!data.model || !data.api_base) {
+      showResult('error', '请先填写模型和端点。');
+      return;
+    }
+    if (!token) {
+      showResult('error', '缺少设置令牌，请使用终端打印的完整链接打开本页。');
+      return;
+    }
+    setBusy(true, '正在保存…');
+    try {
+      const { res, data: out } = await postJSON('/api/setup', data);
+      if (res.status === 403) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        token = '';
+        show($('token-note'), true);
+        showResult('error', out.error || '设置令牌已失效，请重启服务后重试。');
+        setBusy(false);
+        return;
+      }
+      if (!res.ok || !out.ok) {
+        showResult('error', out.error || '保存失败，请检查配置。');
+        setBusy(false);
+        return;
+      }
+      sessionStorage.removeItem(TOKEN_KEY);
+      token = '';
+      $('apiKey').value = '';
+      const source = out.credential_source === 'keyring' ? '系统钥匙串'
+        : out.credential_source === 'file' ? '凭据文件'
+        : out.credential_source === 'env' ? '环境变量' : '本机凭据';
+      showResult('ok', '已保存到' + source + '。正在进入对话…');
+      setTimeout(() => { location.href = '/'; }, 700);
+    } catch (err) {
+      showResult('error', '请求失败：' + (err && err.message ? err.message : '未知错误'));
+      setBusy(false);
+    }
+  }
+
+  $('setup-form').addEventListener('submit', runSave);
+  $('test-btn').addEventListener('click', runTest);
+  $('reload-btn').addEventListener('click', () => { showResult('info', '正在刷新…'); refresh(); });
+
+  refresh();
+  setInterval(refresh, 4000);
+})();
+</script>
+</body>
+</html>

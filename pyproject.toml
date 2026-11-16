@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mini-agent"
+dynamic = ["version"]
+description = "轻量异步 AI Agent 运行时：单命令启动、Web 首启配置、凭据存入系统钥匙串"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["ai", "agent", "chatbot", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "openai>=1.60,<4",
+    # 密钥默认存操作系统钥匙串（Windows 凭据管理器 / macOS Keychain）；
+    # 缺少它时只能退回显式凭据文件，首启设置页会提示不可用。
+    "keyring>=24,<27",
+]
+
+[project.optional-dependencies]
+langfuse = ["langfuse>=5,<6"]
+mem0 = ["mem0ai>=2.2,<3"]
+
+[project.scripts]
+mini-agent = "mini_agent.__main__:main"
+
+[tool.setuptools]
+# 本文件就在包目录内：把顶层包 mini_agent 映射到构建根目录。
+package-dir = { mini_agent = "." }
+packages = [
+    "mini_agent",
+    "mini_agent.agent",
+    "mini_agent.agent.tools",
+    "mini_agent.bus",
+    "mini_agent.channels",
+    "mini_agent.evals",
+    "mini_agent.memory",
+    "mini_agent.providers",
+    "mini_agent.runtime",
+    "mini_agent.session",
+    "mini_agent.utils",
+]
+
+[tool.setuptools.package-data]
+"mini_agent.channels" = ["webui/*.html"]
+"mini_agent.evals" = ["cases.jsonl"]
+
+[tool.setuptools.dynamic]
+version = { attr = "mini_agent.__version__" }
